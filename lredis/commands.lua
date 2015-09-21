@@ -1,13 +1,14 @@
 local methods = {}
 
 function methods:ping()
-	local resp = self:callt("PING")
-	if resp.ok then
+	local resp = self:call("PING")
+	local is_table = type(resp) == "table"
+	if is_table and resp.ok then
 		return resp.ok
-	elseif resp.err then
+	elseif is_table and resp.err then
 		error(resp.err, 2)
 	else
-		error("unexpected PING reply")
+		error("unexpected PING response")
 	end
 end
 
