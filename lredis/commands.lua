@@ -16,6 +16,12 @@ function methods:ping()
 	return handle_ok_or_err(resp)
 end
 
+function methods:client_pause(delay)
+	local milliseconds = string.format("%d", math.ceil(delay*1000))
+	local resp = self:call("client", "pause", milliseconds)
+	return handle_ok_or_err(resp)
+end
+
 function methods:subscribe(...)
 	self:start_subscription_mode("SUBSCRIBE", ...)
 end
