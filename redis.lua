@@ -4,7 +4,7 @@ local pack = table.pack or function(...) return {n = select("#", ...), ...} end
 local function prep_request(...)
     local arg = pack(...)
     local str = {
-        [0] = "*"..arg.n.."\r\n";
+        [0] = string.format("*%d\r\n", arg.n);
     }
     for i=1, arg.n do
         local v = arg[i]
