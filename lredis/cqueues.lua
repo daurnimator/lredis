@@ -11,21 +11,25 @@ local mt = {
 	__index = methods;
 }
 
-local function new(host, port)
-	local socket = assert(cs.connect({
-		host = host or "127.0.0.1";
-		port = port or "6379";
-		nodelay = true;
-	}))
+local function new(socket)
 	socket:setmode("b", "b")
 	socket:setvbuf("full", math.huge) -- 'infinite' buffering; no write locks needed
-	assert(socket:connect())
 	return setmetatable({
 		socket = socket;
 		fifo = new_fifo();
 		subscribes_pending = 0;
 		subscribed_to = 0;
 	}, mt)
+end
+
+local function connect_tcp(host, port)
+	local socket = assert(cs.connect({
+		host = host or "127.0.0.1";
+		port = port or "6379";
+		nodelay = true;
+	}))
+	assert(socket:connect())
+	return new(socket)
 end
 
 -- call with table arg/return
@@ -83,4 +87,5 @@ end
 
 return {
 	new = new;
+	connect_tcp = connect_tcp;
 }
