@@ -32,6 +32,10 @@ local function connect_tcp(host, port)
 	return new(socket)
 end
 
+function methods:close()
+	self.socket:close()
+end
+
 -- call with table arg/return
 function methods:callt(arg, new_status, new_error, string_null, array_null)
 	if self.subscribes_pending > 0 or self.subscribed_to > 0 then
