@@ -17,7 +17,7 @@ local function new(host, port)
 		port = port or "6379";
 		nodelay = true;
 	}))
-	socket:setmode("b", "bn")
+	socket:setmode("b", "b")
 	socket:setvbuf("full", math.huge) -- 'infinite' buffering; no write locks needed
 	assert(socket:connect())
 	return setmetatable({
@@ -31,6 +31,7 @@ function methods:callt(arg, new_status, new_error, string_null, array_null)
 	local req = protocol.encode_request(arg)
 	local cond = cc.new()
 	assert(self.socket:write(req))
+	assert(self.socket:flush())
 	self.fifo:push(cond)
 	if self.fifo:peek() ~= cond then
 		cond:wait()
