@@ -20,7 +20,6 @@ dependencies = {
 build = {
 	type = "builtin";
 	modules = {
-		["lredis.init"] = "lredis/init.lua";
 		["lredis.commands"] = "lredis/commands.lua";
 		["lredis.cqueues"] = "lredis/cqueues.lua";
 		["lredis.protocol"] = "lredis/protocol.lua";
