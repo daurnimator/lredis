@@ -5,6 +5,13 @@
   - Optionally asynchronous
   - Compatible with Lua 5.1, 5.2, 5.3 and [LuaJIT](http://luajit.org/)
 
+# Status
+
+This project is a work in progress and not ready for production use.
+
+[![Build Status](https://travis-ci.org/daurnimator/lredis.svg)](https://travis-ci.org/daurnimator/lredis)
+[![Coverage Status](https://coveralls.io/repos/daurnimator/lredis/badge.svg?branch=master&service=github)](https://coveralls.io/github/daurnimator/lredis?branch=master)
+
 
 # Installation
 
