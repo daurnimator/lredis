@@ -37,9 +37,9 @@ end
 
 -- Parse a redis response
 local function read_response(file, new_status, new_error, string_null, array_null)
-	local line = assert(file:read("*L"))
-	assert(line:sub(-2, -1) == "\r\n", "invalid line ending")
-	local status, data = line:sub(1, 1), line:sub(2, -3)
+	local line = assert(file:read("*l"))
+	assert(line:sub(-1, -1) == "\r", "invalid line ending")
+	local status, data = line:sub(1, 1), line:sub(2, -2)
 	if status == "+" then
 		return new_status(data)
 	elseif status == "-" then
