@@ -4,6 +4,32 @@
 
   - Optionally asynchronous
   - Compatible with Lua 5.1, 5.2, 5.3 and [LuaJIT](http://luajit.org/)
+  - [Subscribe (PubSub) mode](redis.io/topics/pubsub)
+  - Automatic pipelining (if you use more than one coroutine)
+
+## Why not **_________**?
+
+  - [redis-lua](https://github.com/nrk/redis-lua)?
+      - Not asynchronous
+      - Relies on [luasocket](http://www.impa.br/~diego/software/luasocket)
+      - Architecture doesn't support subscribe mode
+  - [lluv-redis](https://github.com/moteus/lua-lluv-redis)?
+      - Requires lluv/libuv
+  - [lua-resty-redis](https://github.com/openresty/lua-resty-redis)?
+      - Only works inside of openresty/nginx
+  - [lua-hiredis](https://github.com/agladysh/lua-hiredis)?
+      - Not asynchronous
+      - Relies on hiredis C module
+      - Architecture doesn't support subscribe mode
+  - [sidereal](https://github.com/silentbicycle/sidereal)?
+      - Unmaintained
+      - Asynchronous mode not really composable
+      - Relies on [luasocket](http://www.impa.br/~diego/software/luasocket)
+  - [fend-redis](https://github.com/chatid/fend-redis)?
+      - Unmaintained
+      - Relies on hiredis C module
+      - requires ffi
+
 
 # Status
 
