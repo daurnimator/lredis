@@ -4,7 +4,7 @@
 
   - Optionally asynchronous
   - Compatible with Lua 5.1, 5.2, 5.3 and [LuaJIT](http://luajit.org/)
-  - [Subscribe (PubSub) mode](redis.io/topics/pubsub)
+  - [Subscribe (PubSub) mode](http://redis.io/topics/pubsub)
   - Automatic pipelining (if you use more than one coroutine)
 
 ## Why not **_________**?
