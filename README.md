@@ -44,7 +44,7 @@ This project is a work in progress and not ready for production use.
 It's recommended to install lredis by using [luarocks](https://luarocks.org/).
 This will automatically install run-time lua dependencies for you.
 
-  $ luarocks install --server=http://luarocks.org/dev lredis
+    $ luarocks install --server=http://luarocks.org/dev lredis
 
 ## Dependencies
 
