@@ -12,4 +12,20 @@ function methods:ping()
 	end
 end
 
+function methods:subscribe(...)
+	self:start_subscription_mode("SUBSCRIBE", ...)
+end
+
+function methods:unsubscribe(...)
+	self:start_subscription_mode("UNSUBSCRIBE", ...)
+end
+
+function methods:punsubscribe(...)
+	self:start_subscription_mode("PUNSUBSCRIBE", ...)
+end
+
+function methods:psubscribe(...)
+	self:start_subscription_mode("PSUBSCRIBE", ...)
+end
+
 return methods
