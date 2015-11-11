@@ -12,13 +12,13 @@ local function handle_ok_or_err(resp)
 end
 
 function methods:ping()
-	local resp = self:call("PING")
+	local resp = self:pcall("PING")
 	return handle_ok_or_err(resp)
 end
 
 function methods:client_pause(delay)
 	local milliseconds = string.format("%d", math.ceil(delay*1000))
-	local resp = self:call("client", "pause", milliseconds)
+	local resp = self:pcall("client", "pause", milliseconds)
 	return handle_ok_or_err(resp)
 end
 

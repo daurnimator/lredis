@@ -37,7 +37,7 @@ function methods:close()
 end
 
 -- call with table arg/return
-function methods:callt(arg, new_status, new_error, string_null, array_null)
+function methods:pcallt(arg, new_status, new_error, string_null, array_null)
 	if self.subscribes_pending > 0 or self.subscribed_to > 0 then
 		error("cannot 'call' while in subscribe mode")
 	end
@@ -60,8 +60,8 @@ function methods:callt(arg, new_status, new_error, string_null, array_null)
 end
 
 -- call in vararg style
-function methods:call(...)
-	return self:callt(pack(...), protocol.status_reply, protocol.error_reply, protocol.string_null, protocol.array_null)
+function methods:pcall(...)
+	return self:pcallt(pack(...), protocol.status_reply, protocol.error_reply, protocol.string_null, protocol.array_null)
 end
 
 -- need locking around sending subscribe, as you won't know
