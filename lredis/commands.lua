@@ -16,7 +16,7 @@ local function handle_ok_or_err(resp)
 	elseif is_table and resp.err then
 		error(resp.err, 2)
 	else
-		error("unexpected response format")
+		error("unexpected response format", 2)
 	end
 end
 
