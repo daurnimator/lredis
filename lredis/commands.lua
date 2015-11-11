@@ -1,5 +1,14 @@
 local methods = {}
 
+function methods:call(...)
+	local resp = self:pcall(...)
+	local is_table = type(resp) == "table"
+	if is_table and resp.err then
+		error(resp.err, 2)
+	end
+	return resp
+end
+
 local function handle_ok_or_err(resp)
 	local is_table = type(resp) == "table"
 	if is_table and resp.ok then
