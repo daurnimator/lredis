@@ -8,7 +8,7 @@ local cq = cqueues.new()
 -- Create two coroutines
 cq:wrap(function()
 	-- Tell server to pause for half a second
-    print("PAUSE", r:client_pause(0.5))
+	print("PAUSE", r:client_pause(0.5))
 end)
 cq:wrap(function()
 	-- Sleep a small amount of time so that this thread goes second
@@ -16,7 +16,7 @@ cq:wrap(function()
 	-- Pipeline a PING command
 	-- i.e. write it to the socket (and redis will start processing it)
 	-- but this coroutine will be blocked from reading the reply until previous commands have fully returned
-    print("PING", r:ping())
+	print("PING", r:ping())
 end)
 
 -- Run scheduler until there is nothing more to do (or an error)
