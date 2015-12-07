@@ -3,6 +3,7 @@
 
 -- Encode a redis bulk string
 local function encode_bulk_string(str)
+	assert(type(str) == "string")
 	return string.format("$%d\r\n%s\r\n", #str, str)
 end
 
