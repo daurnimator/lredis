@@ -9,14 +9,23 @@ function methods:call(...)
 	return resp
 end
 
-local function handle_ok_or_err(resp)
+local function handle_ok_or_err(resp, lvl)
 	local is_table = type(resp) == "table"
 	if is_table and resp.ok then
 		return resp.ok
-	elseif is_table and resp.err then
-		error(resp.err, 2)
 	else
-		error("unexpected response format", 2)
+		local err
+		if is_table and resp.err then
+			err = resp.err
+		else
+			err = "unexpected response format"
+		end
+		if lvl == nil then
+			lvl = 2
+		elseif lvl ~= 0 then
+			lvl = lvl + 1
+		end
+		error(err, lvl)
 	end
 end
 
