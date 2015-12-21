@@ -19,6 +19,7 @@ local function new(socket)
 		fifo = new_fifo();
 		subscribes_pending = 0;
 		subscribed_to = 0;
+		in_transaction = false;
 	}, mt)
 end
 
@@ -38,7 +39,7 @@ end
 
 -- call with table arg/return
 function methods:pcallt(arg, new_status, new_error, string_null, array_null)
-	if self.subscribes_pending > 0 or self.subscribed_to > 0 then
+	if self.subscribed_to > 0 or (self.subscribes_pending > 0 and not self.in_transaction) then
 		error("cannot 'call' while in subscribe mode")
 	end
 	local cond = cc.new()
@@ -66,9 +67,15 @@ end
 
 -- need locking around sending subscribe, as you won't know
 function methods:start_subscription_modet(arg)
-	local req = protocol.encode_request(arg)
-	assert(self.socket:write(req))
-	assert(self.socket:flush())
+	if self.in_transaction then -- in a transaction
+		-- read off "QUEUED"
+		local resp = self:pcallt(arg, protocol.status_reply, protocol.error_reply, protocol.string_null, protocol.array_null)
+		assert(type(resp) == "table" and resp.ok == "QUEUED")
+	else
+		local req = protocol.encode_request(arg)
+		assert(self.socket:write(req))
+		assert(self.socket:flush())
+	end
 	self.subscribes_pending = self.subscribes_pending + 1
 end
 
@@ -77,7 +84,7 @@ function methods:start_subscription_mode(...)
 end
 
 function methods:get_next(new_status, new_error, string_null, array_null)
-	if self.subscribed_to == 0 and self.subscribes_pending == 0 then
+	if self.in_transaction or (self.subscribed_to == 0 and self.subscribes_pending == 0) then
 		return nil, "not in subscribe mode"
 	end
 	local resp = protocol.read_response(self.socket, new_status, new_error, string_null, array_null)
@@ -87,6 +94,14 @@ function methods:get_next(new_status, new_error, string_null, array_null)
 		self.subscribes_pending = self.subscribes_pending - 1
 	end
 	return resp
+end
+
+function methods:start_transaction()
+	self.in_transaction = true
+end
+
+function methods:end_transaction()
+	self.in_transaction = false
 end
 
 return {

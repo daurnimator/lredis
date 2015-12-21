@@ -56,4 +56,24 @@ function methods:psubscribe(...)
 	self:start_subscription_mode("PSUBSCRIBE", ...)
 end
 
+function methods:multi()
+	local resp = self:call("MULTI")
+	local ret = handle_ok_or_err(resp, 2)
+	self:start_transaction()
+	return ret
+end
+
+function methods:exec()
+	local resp = self:call("EXEC")
+	self:end_transaction()
+	return resp
+end
+
+function methods:discard()
+	local resp = self:call("DISCARD")
+	local ret = handle_ok_or_err(resp, 2)
+	self:end_transaction()
+	return ret
+end
+
 return methods
