@@ -21,6 +21,10 @@
       - Not asynchronous
       - Relies on hiredis C module
       - Architecture doesn't support subscribe mode
+  - [lua_redis](https://github.com/omrikiei/lua_redis)
+      - Not asynchronous
+      - Relies on hiredis C module
+      - Architecture doesn't support subscribe mode
   - [sidereal](https://github.com/silentbicycle/sidereal)?
       - Unmaintained
       - Asynchronous mode not really composable
