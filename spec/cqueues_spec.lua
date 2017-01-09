@@ -2,22 +2,20 @@ describe("lredis.cqueues module", function()
 	local lc = require "lredis.cqueues"
 	local cqueues = require "cqueues"
 	local cs = require "cqueues.socket"
-        
-    local interact = function(sock, script)
-      for i,act in ipairs(script) do
-        if act.read then
-          for j, l in ipairs(act) do
-            local data, err = sock:read("*l")
-            assert.same(l, data)
-          end
-        elseif act.write then
-          for j, l in ipairs(act) do
-            assert(sock:xwrite(l.."\r\n", "bn"))
-          end
-        end
-      end
-    end
-        
+	local interact = function(sock, script)
+		for i,act in ipairs(script) do
+			if act.read then
+				for j, l in ipairs(act) do
+					local data, err = sock:read("*l")
+					assert.same(l, data)
+				end
+			elseif act.write then
+				for j, l in ipairs(act) do
+					assert(sock:xwrite(l.."\r\n", "bn"))
+				end
+			end
+		end
+	end
 	it(":close closes the socket", function()
 		local c, s = cs.pair()
 		local r = lc.new(c)
