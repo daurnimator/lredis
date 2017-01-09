@@ -16,6 +16,23 @@ describe("lredis.cqueues module", function()
 			end
 		end
 	end
+	local testInteraction = function(client_fn, server_script)
+		return function()
+			local m = cs.listen{host="127.0.0.1", port="0"}
+			local _, host, port = m:localname()
+			local cq = cqueues.new()
+			cq:wrap(function()
+				client_fn(host, port)
+			end)
+			cq:wrap(function()
+				local s = m:accept()
+				interact(s, server_script)
+				s:close()
+			end)
+			assert(cq:loop(1))
+			assert(cq:empty())
+		end
+	end
 	it(":close closes the socket", function()
 		local c, s = cs.pair()
 		local r = lc.new(c)
@@ -168,44 +185,20 @@ describe("lredis.cqueues module", function()
 		assert(cq:loop(1))
 		assert(cq:empty())
 	end)
-	it(":hmget works", function()
-		local m = cs.listen{host="127.0.0.1", port="0"}
-		local _, host, port = m:localname()
-		local cq = cqueues.new()
-		cq:wrap(function()
-			local r = lc.connect(host..":"..port)
-			assert.same(r:hmget("foo", "one", "two"), {one="this", two=false})
-			r:close()
-		end)
-		cq:wrap(function()
-			local s = m:accept()
-			interact(s, {
-				{ read=true, "*4", "$5", "HMGET", "$3", "foo", "$3", "one", "$3", "two"},
-				{ write=true, "*2", "$4", "this", "$-1"},
-			})
-			s:close()
-		end)
-		assert(cq:loop(1))
-		assert(cq:empty())
-	end)
-	it(":hgetall works", function()
-		local m = cs.listen{host="127.0.0.1", port="0"}
-		local _, host, port = m:localname()
-		local cq = cqueues.new()
-		cq:wrap(function()
-			local r = lc.connect(host..":"..port)
-			assert.same(r:hgetall("foo"), {one="this", three="3"})
-			r:close()
-		end)
-		cq:wrap(function()
-			local s = m:accept()
-			interact(s, {
-				{ read=true, "*2", "$7", "HGETALL", "$3", "foo"},
-				{ write=true, "*4", "$3", "one", "$4", "this", "$5", "three", "$1", "3"}
-			})
-			s:close()
-		end)
-		assert(cq:loop(1))
-		assert(cq:empty())
-    end)
+	it(":hmget works", testInteraction(function(host, port)
+		local r = lc.connect(host..":"..port)
+		assert.same(r:hmget("foo", "one", "two"), {one="this", two=false})
+		r:close()
+	end, {
+		{ read=true, "*4", "$5", "HMGET", "$3", "foo", "$3", "one", "$3", "two"},
+		{ write=true, "*2", "$4", "this", "$-1"},
+	}))
+	it(":hgetall works", testInteraction(function(host, port)
+		local r = lc.connect(host..":"..port)
+		assert.same(r:hgetall("foo"), {one="this", three="3"})
+		r:close()
+	end, {
+		{ read=true, "*2", "$7", "HGETALL", "$3", "foo"},
+		{ write=true, "*4", "$3", "one", "$4", "this", "$5", "three", "$1", "3"}
+	}))
 end)
