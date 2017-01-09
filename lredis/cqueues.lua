@@ -33,6 +33,35 @@ local function connect_tcp(host, port)
 	return new(socket)
 end
 
+local function connect(url)
+	local rest, auth,host,port,db
+	if url then
+		url = url:match("^redis://(.+)") or url
+		
+		auth, rest = url:match("^@([^:]+):(.+)$")
+		url = rest or url
+		
+		host, rest = url:match("^(%[[^%]]+%])(.*)")
+		if not host then
+			host, rest = url:match("^([^:/]+)(.*)")
+		end
+		url = rest or url
+		
+		port, rest = url:match("^:(%d+)(.*)")
+		url = rest or url
+		
+		db = url:match("^/(%d+)")
+	end
+	local self = connect_tcp(host, port)
+	if auth then
+		self:call("AUTH", auth)
+	end
+	if db then
+		self:call("SELECT", db)
+	end
+	return self
+end
+
 function methods:close()
 	self.socket:close()
 end
@@ -107,4 +136,5 @@ end
 return {
 	new = new;
 	connect_tcp = connect_tcp;
+	connect = connect;
 }
