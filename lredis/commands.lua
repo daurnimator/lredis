@@ -1,4 +1,5 @@
 local methods = {}
+local unpack = table.unpack or unpack
 
 function methods:call(...)
 	local resp = self:pcall(...)
