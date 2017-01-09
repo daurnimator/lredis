@@ -2,6 +2,22 @@ describe("lredis.cqueues module", function()
 	local lc = require "lredis.cqueues"
 	local cqueues = require "cqueues"
 	local cs = require "cqueues.socket"
+        
+    local interact = function(sock, script)
+      for i,act in ipairs(script) do
+        if act.read then
+          for j, l in ipairs(act) do
+            local data, err = sock:read("*l")
+            assert.same(l, data)
+          end
+        elseif act.write then
+          for j, l in ipairs(act) do
+            assert(sock:xwrite(l.."\r\n", "bn"))
+          end
+        end
+      end
+    end
+        
 	it(":close closes the socket", function()
 		local c, s = cs.pair()
 		local r = lc.new(c)
@@ -130,4 +146,68 @@ describe("lredis.cqueues module", function()
 		assert(cq:loop(1))
 		assert(cq:empty())
 	end)
+	it("has working connect constructor", function()
+		local m = cs.listen{host="127.0.0.1", port="0"}
+		local _, host, port = m:localname()
+		local cq = cqueues.new()
+		cq:wrap(function()
+			local r = lc.connect("redis://@password:localhost:"..port.."/5")
+			assert.same(r:ping(), "PONG")
+			r:close()
+		end)
+		cq:wrap(function()
+			local s = m:accept()
+			interact(s, {
+				{ read=true, "*2", "$4", "AUTH", "$8", "password" },
+				{ write=true, "+OK" },
+				{ read=true, "*2", "$6", "SELECT", "$1", "5" },
+				{ write=true, "+OK" },
+				{ read=true, "*1", "$4", "PING"},
+				{ write=true, "+PONG" },
+			})
+			s:close()
+		end)
+		assert(cq:loop(1))
+		assert(cq:empty())
+	end)
+	it(":hmget works", function()
+		local m = cs.listen{host="127.0.0.1", port="0"}
+		local _, host, port = m:localname()
+		local cq = cqueues.new()
+		cq:wrap(function()
+			local r = lc.connect(host..":"..port)
+			assert.same(r:hmget("foo", "one", "two"), {one="this", two=false})
+			r:close()
+		end)
+		cq:wrap(function()
+			local s = m:accept()
+			interact(s, {
+				{ read=true, "*4", "$5", "HMGET", "$3", "foo", "$3", "one", "$3", "two"},
+				{ write=true, "*2", "$4", "this", "$-1"},
+			})
+			s:close()
+		end)
+		assert(cq:loop(1))
+		assert(cq:empty())
+	end)
+	it(":hgetall works", function()
+		local m = cs.listen{host="127.0.0.1", port="0"}
+		local _, host, port = m:localname()
+		local cq = cqueues.new()
+		cq:wrap(function()
+			local r = lc.connect(host..":"..port)
+			assert.same(r:hgetall("foo"), {one="this", three="3"})
+			r:close()
+		end)
+		cq:wrap(function()
+			local s = m:accept()
+			interact(s, {
+				{ read=true, "*2", "$7", "HGETALL", "$3", "foo"},
+				{ write=true, "*4", "$3", "one", "$4", "this", "$5", "three", "$1", "3"}
+			})
+			s:close()
+		end)
+		assert(cq:loop(1))
+		assert(cq:empty())
+    end)
 end)
