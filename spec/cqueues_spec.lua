@@ -193,6 +193,14 @@ describe("lredis.cqueues module", function()
 		{ read=true, "*4", "$5", "HMGET", "$3", "foo", "$3", "one", "$3", "two"},
 		{ write=true, "*2", "$4", "this", "$-1"},
 	}))
+	it(":hmset works", testInteraction(function(host, port)
+		local r = lc.connect(host..":"..port)
+		assert.same(r:hmset("foo", {one="1"}), "OK")
+		r:close()
+	end, {
+		{ read=true, "*4", "$5", "HMSET", "$3", "foo", "$3", "one", "$1", "1"},
+		{ write=true, "+OK"}
+	}))
 	it(":hgetall works", testInteraction(function(host, port)
 		local r = lc.connect(host..":"..port)
 		assert.same(r:hgetall("foo"), {one="this", three="3"})
