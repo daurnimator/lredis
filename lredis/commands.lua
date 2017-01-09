@@ -40,6 +40,38 @@ function methods:client_pause(delay)
 	return handle_ok_or_err(resp)
 end
 
+function methods:hmget(key, ...)
+	local resp = self:call("HMGET", key, ...)
+	if type(resp) == "table" then
+		local ret = {}
+		for i, v in ipairs({...}) do
+			ret[v]=resp[i]
+		end
+		return ret
+	else
+		return resp
+	end
+end
+
+function methods:hgetall(key)
+	local resp = self:call("HGETALL", key)
+	if type(resp) == "table" then
+		local ret = {}
+		local k
+		for i, v in ipairs(resp) do
+			if not k then
+				k = v
+			else
+				ret[k]=v
+				k = nil
+			end
+		end
+		return ret
+	else
+		return resp
+	end
+end
+
 function methods:subscribe(...)
 	self:start_subscription_mode("SUBSCRIBE", ...)
 end
