@@ -33,6 +33,9 @@ describe("lredis.cqueues module", function()
 			assert(cq:empty())
 		end
 	end
+    local read = function(...) return {read=true, ...} end
+    local write = function(...) return {write=true, ...} end
+        
 	it(":close closes the socket", function()
 		local c, s = cs.pair()
 		local r = lc.new(c)
@@ -149,43 +152,43 @@ describe("lredis.cqueues module", function()
 		r:ping()
 		r:close()
 	end, {
-		{ read=true, "*1", "$4", "PING"},
-		{ write=true, "+PONG" },
+		read ("*1", "$4", "PING"),
+		write("+PONG"),
 	}))
 	it("has working connect constructor", testInteraction(function(host, port)
 		local r = lc.connect("redis://@password:localhost:"..port.."/5")
 		assert.same(r:ping(), "PONG")
 		r:close()
 	end, {
-		{ read=true, "*2", "$4", "AUTH", "$8", "password" },
-		{ write=true, "+OK" },
-		{ read=true, "*2", "$6", "SELECT", "$1", "5" },
-		{ write=true, "+OK" },
-		{ read=true, "*1", "$4", "PING"},
-		{ write=true, "+PONG" },
+		read ("*2", "$4", "AUTH", "$8", "password"),
+		write("+OK"),
+		read ("*2", "$6", "SELECT", "$1", "5"),
+		write("+OK"),
+		read ("*1", "$4", "PING"),
+		write("+PONG"),
 	}))
 	it(":hmget works", testInteraction(function(host, port)
 		local r = lc.connect(host..":"..port)
 		assert.same(r:hmget("foo", "one", "two"), {one="this", two=false})
 		r:close()
 	end, {
-		{ read=true, "*4", "$5", "HMGET", "$3", "foo", "$3", "one", "$3", "two"},
-		{ write=true, "*2", "$4", "this", "$-1"},
+		read ("*4", "$5", "HMGET", "$3", "foo", "$3", "one", "$3", "two"),
+		write("*2", "$4", "this", "$-1"),
 	}))
 	it(":hmset works", testInteraction(function(host, port)
 		local r = lc.connect(host..":"..port)
 		assert.same(r:hmset("foo", {one="1"}), "OK")
 		r:close()
 	end, {
-		{ read=true, "*4", "$5", "HMSET", "$3", "foo", "$3", "one", "$1", "1"},
-		{ write=true, "+OK"}
+		read ("*4", "$5", "HMSET", "$3", "foo", "$3", "one", "$1", "1"),
+		write("+OK")
 	}))
 	it(":hgetall works", testInteraction(function(host, port)
 		local r = lc.connect(host..":"..port)
 		assert.same(r:hgetall("foo"), {one="this", three="3"})
 		r:close()
 	end, {
-		{ read=true, "*2", "$7", "HGETALL", "$3", "foo"},
-		{ write=true, "*4", "$3", "one", "$4", "this", "$5", "three", "$1", "3"}
+		read ("*2", "$7", "HGETALL", "$3", "foo"),
+		write("*4", "$3", "one", "$4", "this", "$5", "three", "$1", "3")
 	}))
 end)
