@@ -36,17 +36,53 @@ local function connect_tcp(host, port)
 end
 
 local uri_lpeg = uri_patts.uri* lpeg.P(-1)
+
+local splitquery_lpeg
+do
+	--from luatex, http://mirror.unl.edu/ctan/macros/luatex/generic/lualibs/lualibs-url.lua
+	local tochar      = function(s) return char(tonumber(s,16)) end
+	local amp, equal, percent, hexdigit, endofstring = lpeg.P("&"), lpeg.P("="), lpeg.P("%"), lpeg.R("09","AF","af"), lpeg.P(-1)
+	local escapedchar = (percent * lpeg.C(hexdigit * hexdigit)) / tochar
+	local key   = lpeg.Cs(((escapedchar+1)-equal            )^0)
+	local value = lpeg.Cs(((escapedchar+1)-amp  -endofstring)^0)
+	splitquery_lpeg = lpeg.Cf ( lpeg.Ct("") * lpeg.P { "sequence",
+		sequence = lpeg.V("pair") * (amp * lpeg.V("pair"))^0,
+		pair     = lpeg.Cg(key * equal * value),
+	}, rawset)
+end
 local function connect(url)
 	url = url or ""
 	local m = uri_lpeg:match(url) or uri_lpeg:match("redis://"..url)
 	m.scheme = m.scheme or "redis"
-	assert(m.scheme == "redis", "Expected uri scheme to be 'redis', but got '"..m.scheme.."'")
+	assert(m.scheme:match("rediss?"), "Expected uri scheme to be 'redis' or 'rediss', but got '"..m.scheme.."'")
 	local self = connect_tcp(m.host, m.port)
-	if m.userinfo then
-		self:call("AUTH", m.userinfo:match("^.*:(.*)"))
+	if m.scheme == "rediss" then
+		self.socket:starttls()
 	end
-	if m.path and m.path ~= "/" then
-		self:call("SELECT", m.path:match("^/(.*)"))
+	
+	local password
+	local parsed_query
+	if not m.userinfo and m.query then
+		parsed_query = splitquery_lpeg:match(m.query)
+		password = parsed_query.password
+	elseif m.userinfo then
+		password = m.userinfo:match("^.*:(.*)")
+	end
+	
+	if password then
+		self:call("AUTH", password)
+	end
+	
+	local db
+	if(not m.path or not m.path:match('^/[1-9]%d*$')) and m.query then
+		parsed_query = parsed_query or splitquery_lpeg:match(m.query)
+		db = parsed_query.db
+	elseif m.path then
+		db = m.path:match("^/(.*)")
+	end
+	
+	if db then
+		self:call("SELECT", db)
 	end
 	return self
 end

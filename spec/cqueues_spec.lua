@@ -167,6 +167,18 @@ describe("lredis.cqueues module", function()
 		read ("*1", "$4", "PING"),
 		write("+PONG"),
 	}))
+	it("has working connect constructor that can parse the querystring", testInteraction(function(host, port)
+		local r = lc.connect("redis://localhost:"..port.."/foo?password=password&db=5")
+		assert.same(r:ping(), "PONG")
+		r:close()
+	end, {
+		read ("*2", "$4", "AUTH", "$8", "password"),
+		write("+OK"),
+		read ("*2", "$6", "SELECT", "$1", "5"),
+		write("+OK"),
+		read ("*1", "$4", "PING"),
+		write("+PONG"),
+	}))
 	it(":hmget works", testInteraction(function(host, port)
 		local r = lc.connect(host..":"..port)
 		assert.same(r:hmget("foo", "one", "two"), {one="this", two=false})
