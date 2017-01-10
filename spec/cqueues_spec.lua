@@ -144,47 +144,26 @@ describe("lredis.cqueues module", function()
 		r:close()
 		s:close()
 	end)
-	it("has working connect_tcp constructor", function()
-		local m = cs.listen{host="127.0.0.1", port="0"}
-		local _, host, port = m:localname()
-		local cq = cqueues.new()
-		cq:wrap(function()
-			local r = lc.connect_tcp(host, port)
-			r:ping()
-			r:close()
-		end)
-		cq:wrap(function()
-			local s = m:accept()
-			assert(s:xwrite("+PONG\r\n", "bn"))
-			s:close()
-		end)
-		assert(cq:loop(1))
-		assert(cq:empty())
-	end)
-	it("has working connect constructor", function()
-		local m = cs.listen{host="127.0.0.1", port="0"}
-		local _, host, port = m:localname()
-		local cq = cqueues.new()
-		cq:wrap(function()
-			local r = lc.connect("redis://@password:localhost:"..port.."/5")
-			assert.same(r:ping(), "PONG")
-			r:close()
-		end)
-		cq:wrap(function()
-			local s = m:accept()
-			interact(s, {
-				{ read=true, "*2", "$4", "AUTH", "$8", "password" },
-				{ write=true, "+OK" },
-				{ read=true, "*2", "$6", "SELECT", "$1", "5" },
-				{ write=true, "+OK" },
-				{ read=true, "*1", "$4", "PING"},
-				{ write=true, "+PONG" },
-			})
-			s:close()
-		end)
-		assert(cq:loop(1))
-		assert(cq:empty())
-	end)
+	it("has working connect_tcp constructor", testInteraction(function(host, port)
+		local r = lc.connect_tcp(host, port)
+		r:ping()
+		r:close()
+	end, {
+		{ read=true, "*1", "$4", "PING"},
+		{ write=true, "+PONG" },
+	}))
+	it("has working connect constructor", testInteraction(function(host, port)
+		local r = lc.connect("redis://@password:localhost:"..port.."/5")
+		assert.same(r:ping(), "PONG")
+		r:close()
+	end, {
+		{ read=true, "*2", "$4", "AUTH", "$8", "password" },
+		{ write=true, "+OK" },
+		{ read=true, "*2", "$6", "SELECT", "$1", "5" },
+		{ write=true, "+OK" },
+		{ read=true, "*1", "$4", "PING"},
+		{ write=true, "+PONG" },
+	}))
 	it(":hmget works", testInteraction(function(host, port)
 		local r = lc.connect(host..":"..port)
 		assert.same(r:hmget("foo", "one", "two"), {one="this", two=false})
