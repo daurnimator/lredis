@@ -3,6 +3,8 @@ local commands = require "lredis.commands"
 local cs = require "cqueues.socket"
 local cc = require "cqueues.condition"
 local new_fifo = require "fifo"
+local lpeg = require "lpeg"
+local uri_lib = require "lpeg_patterns.uri"
 
 local pack = table.pack or function(...) return {n = select("#", ...), ...} end
 
@@ -33,31 +35,18 @@ local function connect_tcp(host, port)
 	return new(socket)
 end
 
+local uri_lpeg = uri_lib.uri* lpeg.P(-1)
 local function connect(url)
-	local rest, auth,host,port,db
-	if url then
-		url = url:match("^redis://(.+)") or url
-		
-		auth, rest = url:match("^@([^:]+):(.+)$")
-		url = rest or url
-		
-		host, rest = url:match("^(%[[^%]]+%])(.*)")
-		if not host then
-			host, rest = url:match("^([^:/]+)(.*)")
-		end
-		url = rest or url
-		
-		port, rest = url:match("^:(%d+)(.*)")
-		url = rest or url
-		
-		db = url:match("^/(%d+)")
+	url = url or ""
+	local m = uri_lpeg:match(url) or uri_lpeg:match("redis://"..url)
+	m.scheme = m.scheme or "redis"
+	assert(m.scheme == "redis", "Expected uri scheme to be 'redis', but got '"..m.scheme.."'")
+	local self = connect_tcp(m.host, m.port)
+	if m.userinfo then
+		self:call("AUTH", m.userinfo:match("^.*:(.*)"))
 	end
-	local self = connect_tcp(host, port)
-	if auth then
-		self:call("AUTH", auth)
-	end
-	if db then
-		self:call("SELECT", db)
+	if m.path and m.path ~= "/" then
+		self:call("SELECT", m.path:match("^/(.*)"))
 	end
 	return self
 end
