@@ -156,7 +156,7 @@ describe("lredis.cqueues module", function()
 		write("+PONG"),
 	}))
 	it("has working connect constructor", testInteraction(function(host, port)
-		local r = lc.connect("redis://@password:localhost:"..port.."/5")
+		local r = lc.connect("redis://:password@localhost:"..port.."/5")
 		assert.same(r:ping(), "PONG")
 		r:close()
 	end, {
