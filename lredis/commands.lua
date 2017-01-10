@@ -46,7 +46,7 @@ function methods:hmget(key, ...)
 	local resp = self:call("HMGET", key, ...)
 	if type(resp) == "table" then
 		local ret = {}
-		for i, v in ipairs(pack(...)) do
+		for i, v in pairs({...}) do
 			ret[v]=resp[i]
 		end
 		return ret
