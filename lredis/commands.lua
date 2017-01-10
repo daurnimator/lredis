@@ -1,5 +1,6 @@
 local methods = {}
 local unpack = table.unpack or unpack
+local pack = table.pack or function(...) return {n=select("#", ...), ...} end
 
 function methods:call(...)
 	local resp = self:pcall(...)
@@ -45,7 +46,7 @@ function methods:hmget(key, ...)
 	local resp = self:call("HMGET", key, ...)
 	if type(resp) == "table" then
 		local ret = {}
-		for i, v in pairs({...}) do
+		for i, v in ipairs(pack(...)) do
 			ret[v]=resp[i]
 		end
 		return ret
