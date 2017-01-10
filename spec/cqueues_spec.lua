@@ -2,6 +2,40 @@ describe("lredis.cqueues module", function()
 	local lc = require "lredis.cqueues"
 	local cqueues = require "cqueues"
 	local cs = require "cqueues.socket"
+	local interact = function(sock, script)
+		for i,act in ipairs(script) do
+			if act.read then
+				for j, l in ipairs(act) do
+					local data, err = sock:read("*l")
+					assert.same(l, data)
+				end
+			elseif act.write then
+				for j, l in ipairs(act) do
+					assert(sock:xwrite(l.."\r\n", "bn"))
+				end
+			end
+		end
+	end
+	local testInteraction = function(client_fn, server_script)
+		return function()
+			local m = cs.listen{host="127.0.0.1", port="0"}
+			local _, host, port = m:localname()
+			local cq = cqueues.new()
+			cq:wrap(function()
+				client_fn(host, port)
+			end)
+			cq:wrap(function()
+				local s = m:accept()
+				interact(s, server_script)
+				s:close()
+			end)
+			assert(cq:loop(1))
+			assert(cq:empty())
+		end
+	end
+	local read = function(...) return {read=true, ...} end
+	local write = function(...) return {write=true, ...} end
+
 	it(":close closes the socket", function()
 		local c, s = cs.pair()
 		local r = lc.new(c)
@@ -113,21 +147,60 @@ describe("lredis.cqueues module", function()
 		r:close()
 		s:close()
 	end)
-	it("has working connect_tcp constructor", function()
-		local m = cs.listen{host="127.0.0.1", port="0"}
-		local _, host, port = m:localname()
-		local cq = cqueues.new()
-		cq:wrap(function()
-			local r = lc.connect_tcp(host, port)
-			r:ping()
-			r:close()
-		end)
-		cq:wrap(function()
-			local s = m:accept()
-			assert(s:xwrite("+PONG\r\n", "bn"))
-			s:close()
-		end)
-		assert(cq:loop(1))
-		assert(cq:empty())
-	end)
+	it("has working connect_tcp constructor", testInteraction(function(host, port)
+		local r = lc.connect_tcp(host, port)
+		r:ping()
+		r:close()
+	end, {
+		read ("*1", "$4", "PING"),
+		write("+PONG"),
+	}))
+	it("has working connect constructor", testInteraction(function(host, port)
+		local r = lc.connect("redis://:password@localhost:"..port.."/5")
+		assert.same(r:ping(), "PONG")
+		r:close()
+	end, {
+		read ("*2", "$4", "AUTH", "$8", "password"),
+		write("+OK"),
+		read ("*2", "$6", "SELECT", "$1", "5"),
+		write("+OK"),
+		read ("*1", "$4", "PING"),
+		write("+PONG"),
+	}))
+	it("has working connect constructor that can parse the querystring", testInteraction(function(host, port)
+		local r = lc.connect("redis://localhost:"..port.."/foo?password=password&db=5")
+		assert.same(r:ping(), "PONG")
+		r:close()
+	end, {
+		read ("*2", "$4", "AUTH", "$8", "password"),
+		write("+OK"),
+		read ("*2", "$6", "SELECT", "$1", "5"),
+		write("+OK"),
+		read ("*1", "$4", "PING"),
+		write("+PONG"),
+	}))
+	it(":hmget works", testInteraction(function(host, port)
+		local r = lc.connect(host..":"..port)
+		assert.same(r:hmget("foo", "one", "two"), {one="this", two=false})
+		r:close()
+	end, {
+		read ("*4", "$5", "HMGET", "$3", "foo", "$3", "one", "$3", "two"),
+		write("*2", "$4", "this", "$-1"),
+	}))
+	it(":hmset works", testInteraction(function(host, port)
+		local r = lc.connect(host..":"..port)
+		assert.same(r:hmset("foo", {one="1"}), "OK")
+		r:close()
+	end, {
+		read ("*4", "$5", "HMSET", "$3", "foo", "$3", "one", "$1", "1"),
+		write("+OK")
+	}))
+	it(":hgetall works", testInteraction(function(host, port)
+		local r = lc.connect(host..":"..port)
+		assert.same(r:hgetall("foo"), {one="this", three="3"})
+		r:close()
+	end, {
+		read ("*2", "$7", "HGETALL", "$3", "foo"),
+		write("*4", "$3", "one", "$4", "this", "$5", "three", "$1", "3")
+	}))
 end)

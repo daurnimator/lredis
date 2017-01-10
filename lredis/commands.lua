@@ -1,4 +1,6 @@
 local methods = {}
+local unpack = table.unpack or unpack
+local pack = table.pack or function(...) return {n=select("#", ...), ...} end
 
 function methods:call(...)
 	local resp = self:pcall(...)
@@ -38,6 +40,42 @@ function methods:client_pause(delay)
 	local milliseconds = string.format("%d", math.ceil(delay*1000))
 	local resp = self:pcall("client", "pause", milliseconds)
 	return handle_ok_or_err(resp)
+end
+
+function methods:hmget(key, ...)
+	local resp = self:call("HMGET", key, ...)
+	if type(resp) == "table" then
+		local ret = {}
+		for i, v in ipairs(pack(...)) do
+			ret[v] = resp[i]
+		end
+		return ret
+	else
+		return resp
+	end
+end
+
+function methods:hmset(key, tbl)
+	local data = {}
+	for k,v in pairs(tbl) do
+		table.insert(data, k)
+		table.insert(data, v)
+	end
+	local resp = self:call("HMSET", key, unpack(data))
+	return handle_ok_or_err(resp)
+end
+
+function methods:hgetall(key)
+	local resp = self:call("HGETALL", key)
+	if type(resp) == "table" then
+		local ret = {}
+		for i = 1, #resp, 2 do
+		  ret[resp[i]] = resp[i+1]
+		end
+		return ret
+	else
+		return resp
+	end
 end
 
 function methods:subscribe(...)

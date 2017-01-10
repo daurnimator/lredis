@@ -15,6 +15,7 @@ dependencies = {
 	"lua >= 5.1";
 	"cqueues >= 20150907";
 	"fifo";
+	"lpeg_patterns";
 }
 
 build = {
