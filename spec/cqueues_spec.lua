@@ -33,9 +33,9 @@ describe("lredis.cqueues module", function()
 			assert(cq:empty())
 		end
 	end
-    local read = function(...) return {read=true, ...} end
-    local write = function(...) return {write=true, ...} end
-        
+	local read = function(...) return {read=true, ...} end
+	local write = function(...) return {write=true, ...} end
+
 	it(":close closes the socket", function()
 		local c, s = cs.pair()
 		local r = lc.new(c)
