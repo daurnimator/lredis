@@ -69,14 +69,8 @@ function methods:hgetall(key)
 	local resp = self:call("HGETALL", key)
 	if type(resp) == "table" then
 		local ret = {}
-		local k
-		for i, v in ipairs(resp) do
-			if not k then
-				k = v
-			else
-				ret[k]=v
-				k = nil
-			end
+		for i=1, #resp, 2 do
+		  ret[resp[i]]=resp[i+1]
 		end
 		return ret
 	else
