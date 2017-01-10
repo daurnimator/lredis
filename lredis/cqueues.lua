@@ -4,7 +4,7 @@ local cs = require "cqueues.socket"
 local cc = require "cqueues.condition"
 local new_fifo = require "fifo"
 local lpeg = require "lpeg"
-local uri_lib = require "lpeg_patterns.uri"
+local uri_patts = require "lpeg_patterns.uri"
 
 local pack = table.pack or function(...) return {n = select("#", ...), ...} end
 
@@ -35,7 +35,7 @@ local function connect_tcp(host, port)
 	return new(socket)
 end
 
-local uri_lpeg = uri_lib.uri* lpeg.P(-1)
+local uri_lpeg = uri_patts.uri* lpeg.P(-1)
 local function connect(url)
 	url = url or ""
 	local m = uri_lpeg:match(url) or uri_lpeg:match("redis://"..url)

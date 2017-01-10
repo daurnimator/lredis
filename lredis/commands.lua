@@ -47,7 +47,7 @@ function methods:hmget(key, ...)
 	if type(resp) == "table" then
 		local ret = {}
 		for i, v in ipairs(pack(...)) do
-			ret[v]=resp[i]
+			ret[v] = resp[i]
 		end
 		return ret
 	else
@@ -57,8 +57,8 @@ end
 
 function methods:hmset(key, tbl)
 	local data = {}
-	for i,v in pairs(tbl) do
-		table.insert(data, i)
+	for k,v in pairs(tbl) do
+		table.insert(data, k)
 		table.insert(data, v)
 	end
 	local resp = self:call("HMSET", key, unpack(data))
@@ -69,8 +69,8 @@ function methods:hgetall(key)
 	local resp = self:call("HGETALL", key)
 	if type(resp) == "table" then
 		local ret = {}
-		for i=1, #resp, 2 do
-		  ret[resp[i]]=resp[i+1]
+		for i = 1, #resp, 2 do
+		  ret[resp[i]] = resp[i+1]
 		end
 		return ret
 	else
