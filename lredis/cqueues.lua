@@ -50,12 +50,17 @@ function methods:pcallt(arg, new_status, new_error, string_null, array_null)
 	if self.fifo:peek() ~= cond then
 		cond:wait()
 	end
-	local resp = protocol.read_response(self.socket, new_status, new_error, string_null, array_null)
+	-- catch any error reading the response and re-throw it after removing this
+	-- call from the queue, to avoid deadlocking other requests.
+	local resp_ok, resp = pcall(protocol.read_response, self.socket, new_status, new_error, string_null, array_null)
 	assert(self.fifo:pop() == cond)
 	-- signal next thing in pipeline
 	local next, ok = self.fifo:peek()
 	if ok then
 		next:signal()
+	end
+	if not resp_ok then
+		error(resp)
 	end
 	return resp
 end
