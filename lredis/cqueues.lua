@@ -11,7 +11,14 @@ local mt = {
 	__index = methods;
 }
 
+-- override the default socket handler so that it returns all errors rather than
+-- throwing them.
+local function socket_error_handler(socket, method, code, level)
+	return code, level
+end
+
 local function new(socket)
+	socket:onerror(socket_error_handler)
 	socket:setmode("b", "b")
 	socket:setvbuf("full", math.huge) -- 'infinite' buffering; no write locks needed
 	return setmetatable({
