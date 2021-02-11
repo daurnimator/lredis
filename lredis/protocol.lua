@@ -36,6 +36,13 @@ local function encode_inline(arg)
 	return table.concat(arg, " ", 1, n+1)
 end
 
+-- Encode and send a redis command.
+local function send_command(file, arg)
+	local req = encode_request(arg)
+	assert(file:write(req))
+	assert(file:flush())
+end
+
 -- Parse a redis response
 local function read_response(file, new_status, new_error, string_null, array_null)
 	local line = assert(file:read("*l"))
@@ -94,6 +101,7 @@ return {
 	encode_request = encode_request;
 	encode_inline = encode_inline;
 
+	send_command = send_command;
 	read_response = read_response;
 
 	error_reply = error_reply;

@@ -43,9 +43,7 @@ function methods:pcallt(arg, new_status, new_error, string_null, array_null)
 		error("cannot 'call' while in subscribe mode")
 	end
 	local cond = cc.new()
-	local req = protocol.encode_request(arg)
-	assert(self.socket:write(req))
-	assert(self.socket:flush())
+	protocol.send_command(self.socket, arg)
 	self.fifo:push(cond)
 	if self.fifo:peek() ~= cond then
 		cond:wait()
@@ -77,9 +75,7 @@ function methods:start_subscription_modet(arg)
 		local resp = self:pcallt(arg, protocol.status_reply, protocol.error_reply, protocol.string_null, protocol.array_null)
 		assert(type(resp) == "table" and resp.ok == "QUEUED")
 	else
-		local req = protocol.encode_request(arg)
-		assert(self.socket:write(req))
-		assert(self.socket:flush())
+		protocol.send_command(self.socket, arg)
 	end
 	self.subscribes_pending = self.subscribes_pending + 1
 end
