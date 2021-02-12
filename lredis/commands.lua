@@ -1,79 +1,150 @@
-local methods = {}
+local base_methods = {}
 
-function methods:call(...)
+-- client methods and metatable
+local client_methods = setmetatable({}, { __index = base_methods })
+local client_mt = { __index = client_methods }
+local new_client
+
+-- transaction methods and metatable
+local transaction_methods = setmetatable({}, { __index = base_methods })
+local transaction_mt = { __index = transaction_methods }
+local new_transaction
+
+--[[
+--	Base methods
+--]]
+
+function base_methods:call_no_err(...)
 	local resp = self:pcall(...)
-	local is_table = type(resp) == "table"
-	if is_table and resp.err then
-		error(resp.err, 2)
+	if type(resp) ~= "table" or (not resp.ok and not resp.err) then
+		resp = { data = resp }
 	end
 	return resp
 end
 
-local function handle_ok_or_err(resp, lvl)
-	local is_table = type(resp) == "table"
-	if is_table and resp.ok then
-		return resp.ok
-	else
-		local err
-		if is_table and resp.err then
-			err = resp.err
-		else
-			err = "unexpected response format"
-		end
-		if lvl == nil then
-			lvl = 2
-		elseif lvl ~= 0 then
-			lvl = lvl + 1
-		end
-		error(err, lvl)
+function base_methods:call(...)
+	local resp = self:call_no_err(...)
+	if resp.err then
+		error(resp.err, 2)
 	end
+	return (resp.ok and resp) or resp.data
 end
 
-function methods:ping()
-	local resp = self:pcall("PING")
-	return handle_ok_or_err(resp)
+function base_methods:call_ok_or_err(lvl, ...)
+	local resp = self:call_no_err(...)
+
+	if lvl ~= 0 then
+		lvl = (lvl or 1) + 1
+	end
+	return resp.ok or error(resp.err or "unexpected response format", lvl)
 end
 
-function methods:client_pause(delay)
+function base_methods:ping()
+	return self:call_ok_or_err(nil, "PING")
+end
+
+function base_methods:client_pause(delay)
 	local milliseconds = string.format("%d", math.ceil(delay*1000))
-	local resp = self:pcall("client", "pause", milliseconds)
-	return handle_ok_or_err(resp)
+	return self:call_ok_or_err(nil, "client", "pause", milliseconds)
 end
 
-function methods:subscribe(...)
+function base_methods:subscribe(...)
 	self:start_subscription_mode("SUBSCRIBE", ...)
 end
 
-function methods:unsubscribe(...)
+function base_methods:unsubscribe(...)
 	self:start_subscription_mode("UNSUBSCRIBE", ...)
 end
 
-function methods:punsubscribe(...)
+function base_methods:punsubscribe(...)
 	self:start_subscription_mode("PUNSUBSCRIBE", ...)
 end
 
-function methods:psubscribe(...)
+function base_methods:psubscribe(...)
 	self:start_subscription_mode("PSUBSCRIBE", ...)
 end
 
-function methods:multi()
-	local resp = self:call("MULTI")
-	local ret = handle_ok_or_err(resp, 2)
-	self:start_transaction()
-	return ret
+--[[
+--	Client methods
+--]]
+
+-- execute the MULTI command and return a new transaction object if successful.
+function client_methods:multi()
+	if self.transaction_lock and not self:in_coroutine() then
+		error("Transaction in progress and cannot wait -- not in a coroutine", 2)
+	end
+
+	while self.transaction_lock do
+		self.transaction_lock:wait()
+	end
+	self:create_transaction_lock()
+
+	local transaction = new_transaction(self)
+	transaction:call_ok_or_err(nil, "MULTI")
+
+	return transaction
 end
 
-function methods:exec()
-	local resp = self:call("EXEC")
-	self:end_transaction()
-	return resp
+function new_client(client)
+	return setmetatable(client, client_mt)
 end
 
-function methods:discard()
-	local resp = self:call("DISCARD")
-	local ret = handle_ok_or_err(resp, 2)
-	self:end_transaction()
-	return ret
+--[[
+--	Transaction methods
+--]]
+
+function transaction_methods:end_transaction()
+	if self.in_transaction then
+		self.client.subscribes_pending = self.subscribes_pending
+		self.client.subscribed_to = self.subscribed_to
+
+		self.in_transaction = nil
+		self.client:destroy_transaction_lock()
+	end
 end
 
-return methods
+function transaction_methods:call(func, ...)
+	if not self.in_transaction then
+		error("Transaction no longer valid", 2)
+	end
+
+	local resp = self:call_no_err(func, ...)
+	func = func:upper()
+	if func == "EXEC" or func == "DISCARD" or resp.err then
+		self:end_transaction()
+	end
+
+	if resp.err then
+		error(resp.err, 2)
+	end
+	return (resp.ok and resp) or resp.data
+end
+
+function transaction_methods:exec()
+	return self:call("EXEC")
+end
+
+function transaction_methods:discard()
+	return self:call_ok_or_err(nil, "DISCARD")
+end
+
+function new_transaction(client)
+	local transaction = {
+		client = client,
+		socket = client.socket,
+		fifo = client.fifo,
+		subscribes_pending = client.subscribes_pending,
+		subscribed_to = client.subscribed_to,
+		in_transaction = true,
+	}
+
+	return setmetatable(transaction, transaction_mt)
+end
+
+return {
+	base_methods = base_methods,
+	client_methods = client_methods,
+	transaction_methods = transaction_methods,
+
+	new_client = new_client,
+}

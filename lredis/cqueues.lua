@@ -1,26 +1,23 @@
 local protocol = require "lredis.protocol"
 local commands = require "lredis.commands"
+local cq = require "cqueues"
 local cs = require "cqueues.socket"
 local cc = require "cqueues.condition"
 local new_fifo = require "fifo"
 
 local pack = table.pack or function(...) return {n = select("#", ...), ...} end
 
-local methods = setmetatable({}, {__index = commands})
-local mt = {
-	__index = methods;
-}
+local methods = commands.base_methods
 
 local function new(socket)
 	socket:setmode("b", "b")
 	socket:setvbuf("full", math.huge) -- 'infinite' buffering; no write locks needed
-	return setmetatable({
+	return commands.new_client{
 		socket = socket;
 		fifo = new_fifo();
 		subscribes_pending = 0;
 		subscribed_to = 0;
-		in_transaction = false;
-	}, mt)
+	}
 end
 
 local function connect_tcp(host, port)
@@ -31,6 +28,10 @@ local function connect_tcp(host, port)
 	}))
 	assert(socket:connect())
 	return new(socket)
+end
+
+function methods:in_coroutine()
+	return cq.running() and true or false
 end
 
 function methods:close()
@@ -96,12 +97,20 @@ function methods:get_next(new_status, new_error, string_null, array_null)
 	return resp
 end
 
-function methods:start_transaction()
-	self.in_transaction = true
+function methods:create_transaction_lock()
+	if not self.transaction_lock then
+		self.transaction_lock = cc.new()
+	end
 end
 
-function methods:end_transaction()
-	self.in_transaction = false
+-- destroy the transaction lock and signal all waiting processes.
+function methods:destroy_transaction_lock()
+	local lock = self.transaction_lock
+	self.transaction_lock = nil
+
+	if lock then
+		lock:signal()
+	end
 end
 
 return {
