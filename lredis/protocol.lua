@@ -11,7 +11,10 @@ end
 -- Requests are always just an array of bulk strings
 local function encode_request(arg)
 	local n = arg.n or #arg
-	assert(n > 0, "need at least one argument")
+	if n == 0 then
+		return nil, "need at least one argument"
+	end
+
 	local str = {
 		[0] = string.format("*%d\r\n", n);
 	}
@@ -36,43 +39,86 @@ local function encode_inline(arg)
 	return table.concat(arg, " ", 1, n+1)
 end
 
+-- Encode and send a redis command.
+local function send_command(file, arg)
+	local req, err_code = encode_request(arg)
+	if not req then
+		return nil, err_code
+	end
+	req, err_code = file:write(req)
+	if not req then
+		return nil, err_code
+	end
+	req, err_code = file:flush()
+	if not req then
+		return nil, err_code
+	end
+
+	return true
+end
+
 -- Parse a redis response
 local function read_response(file, new_status, new_error, string_null, array_null)
-	local line = assert(file:read("*l"))
-	assert(line:sub(-1, -1) == "\r", "invalid line ending")
+	local line, err_code = file:read("*l")
+	if not line then
+		return nil, err_code or "EOF reached"
+	elseif line:sub(-1, -1) ~= "\r" then
+		return nil, "invalid line ending"
+	end
+
 	local status, data = line:sub(1, 1), line:sub(2, -2)
 	if status == "+" then
 		return new_status(data)
 	elseif status == "-" then
 		return new_error(data)
 	elseif status == ":" then
-		return assert(tonumber(data, 10), "invalid integer")
+		local n = tonumber(data, 10)
+		if n then
+			return n
+		else
+			return nil, "invalid integer"
+		end
 	elseif status == "$" then
-		local len = assert(tonumber(data, 10), "invalid bulk string length")
-		if len == -1 then
+		local len = tonumber(data, 10)
+		if not len then
+			return nil, "invalid bulk string length"
+		elseif len == -1 then
 			return string_null
 		elseif len > 512*1024*1024 then -- max 512 MB
-			error("bulk string too large")
+			return nil, "bulk string too large"
 		else
-			local str = assert(file:read(len))
+			local str, err_code = file:read(len)
+			if not str then
+				return str, err_code
+			end
 			-- should be followed by CRLF
-			local crlf = assert(file:read(2))
-			assert(crlf == "\r\n", "invalid bulk reply")
+			local crlf, err_code = file:read(2)
+			if not crlf then
+				return nil, err_code
+			elseif crlf ~= "\r\n" then
+				return nil, "invalid bulk reply"
+			end
 			return str
 		end
 	elseif status == "*" then
-		local len = assert(tonumber(data, 10), "invalid array length")
-		if len == -1 then
+		local len = tonumber(data, 10)
+		if not len then
+			return nil, "invalid array length"
+		elseif len == -1 then
 			return array_null
 		else
-			local arr = {}
+			local arr, null = {}, {}
 			for i=1, len do
-				arr[i] = read_response(file, new_status, new_error, string_null, array_null)
+				local resp, err_code = read_response(file, new_status, new_error, null, array_null)
+				if not resp then
+					return nil, err_code
+				end
+				arr[i] = (resp ~= null) and resp or string_null
 			end
 			return arr
 		end
 	else
-		error("invalid redis status")
+		return nil, "invalid redis status"
 	end
 end
 
@@ -94,6 +140,7 @@ return {
 	encode_request = encode_request;
 	encode_inline = encode_inline;
 
+	send_command = send_command;
 	read_response = read_response;
 
 	error_reply = error_reply;

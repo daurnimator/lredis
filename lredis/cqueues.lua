@@ -11,7 +11,14 @@ local mt = {
 	__index = methods;
 }
 
+-- override the default socket handler so that it returns all errors rather than
+-- throwing them.
+local function socket_error_handler(socket, method, code, level)
+	return code, level
+end
+
 local function new(socket)
+	socket:onerror(socket_error_handler)
 	socket:setmode("b", "b")
 	socket:setvbuf("full", math.huge) -- 'infinite' buffering; no write locks needed
 	return setmetatable({
@@ -43,21 +50,26 @@ function methods:pcallt(arg, new_status, new_error, string_null, array_null)
 		error("cannot 'call' while in subscribe mode")
 	end
 	local cond = cc.new()
-	local req = protocol.encode_request(arg)
-	assert(self.socket:write(req))
-	assert(self.socket:flush())
+	local ok, err_code = protocol.send_command(self.socket, arg)
+	if not ok then
+		error(('send_command error: %s'):format(tostring(err_code)))
+	end
 	self.fifo:push(cond)
 	if self.fifo:peek() ~= cond then
 		cond:wait()
 	end
-	local resp = protocol.read_response(self.socket, new_status, new_error, string_null, array_null)
+	-- catch any error reading the response and re-throw it after removing this
+	-- call from the queue, to avoid deadlocking other requests.
+	local null = {}
+	local resp, err_code = protocol.read_response(self.socket, new_status, new_error, null, array_null)
 	assert(self.fifo:pop() == cond)
 	-- signal next thing in pipeline
 	local next, ok = self.fifo:peek()
 	if ok then
 		next:signal()
 	end
-	return resp
+	assert(resp, err_code)
+	return (resp ~= null) and resp or string_null
 end
 
 -- call in vararg style
@@ -72,9 +84,10 @@ function methods:start_subscription_modet(arg)
 		local resp = self:pcallt(arg, protocol.status_reply, protocol.error_reply, protocol.string_null, protocol.array_null)
 		assert(type(resp) == "table" and resp.ok == "QUEUED")
 	else
-		local req = protocol.encode_request(arg)
-		assert(self.socket:write(req))
-		assert(self.socket:flush())
+		local ok, err_code = protocol.send_command(self.socket, arg)
+		if not ok then
+			error(('send_command error: %s'):format(tostring(err_code)))
+		end
 	end
 	self.subscribes_pending = self.subscribes_pending + 1
 end
@@ -87,7 +100,10 @@ function methods:get_next(new_status, new_error, string_null, array_null)
 	if self.in_transaction or (self.subscribed_to == 0 and self.subscribes_pending == 0) then
 		return nil, "not in subscribe mode"
 	end
-	local resp = protocol.read_response(self.socket, new_status, new_error, string_null, array_null)
+	local null = {}
+	local resp, err_code = protocol.read_response(self.socket, new_status, new_error, null, array_null)
+	assert(resp, err_code)
+	resp = (resp ~= null) and resp or string_null
 	local kind = resp[1]
 	if kind == "subscribe" or kind == "unsubscribe" or kind == "psubscribe" or kind == "punsubscribe" then
 		self.subscribed_to = resp[3]
