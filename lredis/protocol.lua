@@ -72,7 +72,12 @@ local function read_response(file, new_status, new_error, string_null, array_nul
 	elseif status == "-" then
 		return new_error(data)
 	elseif status == ":" then
-		return tonumber(data, 10), "invalid integer"
+		local n = tonumber(data, 10)
+		if n then
+			return n
+		else
+			return nil, "invalid integer"
+		end
 	elseif status == "$" then
 		local len = tonumber(data, 10)
 		if not len then
